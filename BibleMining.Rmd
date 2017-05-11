@@ -1,0 +1,140 @@
+---
+title: "A Homework of Biblical Proportions"
+author: "Meiyuan Li"
+---
+
+In this HW, we will analyze the text of the bible. The ascii version resides in the file "ascii_bible.txt" on Camino. Use an editor to familiarize yourself with the structure of the file. Then perform the following operations, listed below as questions for you to answer. 
+
+## Q1: Read in the file using any R function you like and store each verse in a text array. After which print the top 20 verses. (Remove the top two lines which contain the title.)
+
+```{r}
+library(stringr)
+text = readLines("/Users/Meiyuan/Downloads/3490 R/DATA/ascii_bible copy.txt")
+text = str_replace_all(text,"\t"," ")
+text = gsub("Book \\d\\d\\s.*","",text)
+text = str_replace_all(text,"        ","")
+idx = which(nchar(text)==0)
+size = length(text)
+text = text[setdiff(seq(1,size),idx)]
+#add an identifier "XYZ" for later subsitution
+text = paste(text, collapse = "XYZ")
+text = str_replace_all(text,"XYZ0","     0")
+text = str_replace_all(text,"XYZ1","     1")
+text = str_replace_all(text,"XYZ"," ")
+final = strsplit(text,"     ", perl = TRUE)
+verse = unlist(final)
+#write out the verse for later use
+#write(verse, file = "verse.txt")
+```
+
+
+## Q2: How many verses are there in total? 
+```{r}
+length(verse)
+```
+
+
+## Q3: Each verse has the number "CCC:VVV" where CCC is the chapter number and VVV is the verse number. How many chapters are there? 
+
+```{r}
+verse = readLines("/Users/Meiyuan/verse.txt")
+verse = as.vector(verse)
+count = 0
+for (j in 1:length(verse)) {
+  if(!identical(substring(verse[j],1,3),substring(verse[j+1],1,3)) || (substring(verse[j],1,7) == "001:001" && identical(substring(verse[j-1],1,3),substring(verse[j+1],1,3)) )){
+      count = count + 1
+  }
+    
+}
+count
+```
+
+## Q4: Extract an array for the verse numbers, and also one for the verse text.
+```{r}
+verseNumber = substring(verse,1,7)
+verseText = substring(verse,9)
+```
+## Q5: Lower case all text.
+
+```{r}
+lowerText = tolower(verseText)
+```
+
+## Q6: Convert the text of all verses into a Corpus using the **tm** package. 
+```{r}
+library(tm)
+library(NLP)
+verseTm = Corpus(VectorSource(lowerText))
+```
+
+## Q7: Remove all punctuation. Use a corpus function for this. How many unique words are there in the bible? 
+
+```{r}
+library(tm)
+noPunc = tm_map(verseTm,removePunctuation)
+verseTDM = TermDocumentMatrix(noPunc,control=list(minWordLength=1))
+inspect(verseTDM)
+```
+
+
+## Q8: Remove all stopwords. Now how many unique terms are there? 
+
+```{r}
+noStopwords = tm_map(noPunc,removeWords,stopwords("english"))
+verseTDM2 = TermDocumentMatrix(noStopwords,control=list(minWordLength=1))
+inspect(verseTDM2)
+```
+
+
+## Q9: Now stem the text, to remove multiplicity of similar words of the same root. 
+
+```{r}
+noStemwords = tm_map(noStopwords, stemDocument)
+```
+
+
+## Q10: How many distinct words are there in the bible, after stemming?
+
+```{r}
+verseTDM3 = TermDocumentMatrix(noStemwords,control=list(minWordLength=1))
+inspect(verseTDM3)
+```
+
+
+## Q11: Convert the TDM into a matrix and find the 50 most common words in the bible. 
+
+```{r}
+tdmMatrix = as.matrix(verseTDM3)
+rowSums = rowSums(tdmMatrix)
+wordCount = sort(rowSums, decreasing = TRUE)
+top50 = head(wordCount, n=50)
+top50
+```
+
+## Q12: Make a wordcloud of the top 100 words in the bible. 
+```{r}
+library(wordcloud)
+top100 = head(wordCount, n=100)
+tdmNames = names(top100)
+wordcloud(tdmNames,top100)
+```
+
+
+## Q13: Mood score the original text of the bible (before stemming)
+
+```{r}
+library(tm)
+poswords = unlist(read.csv("/Users/Meiyuan/Downloads/pos.csv"))
+negwords = unlist(read.csv("/Users/Meiyuan/Downloads/neg.csv"))
+
+fullverse = paste((unlist(noStopwords)),collapse = " ")
+allwords = str_split(fullverse,"\\s+")
+posmatch = match(unlist(allwords),poswords)
+numposmatch = length(posmatch[which(posmatch>0)])
+negmatch = match(unlist(allwords),negwords)
+numnegmatch = length(negmatch[which(negmatch>0)])
+print(c(numposmatch,numnegmatch))
+
+```
+
+
